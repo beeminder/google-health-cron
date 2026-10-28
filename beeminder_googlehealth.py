@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+Written entirely by Claude but the blurbs of UI-copy were vetted and edited by the humans of Beeminder.
+
 DIY sync from the Google Health API to Beeminder goals.
 
   python3 beeminder_googlehealth.py setup      # once, interactive
@@ -272,9 +274,9 @@ def setup():
 
   # {slug: {"metric": "exercise_km", "types": ["RUNNING"]}}; no types = all workouts
   goals = {}
-  print("\nNow your goals, one per line: the goal's slug, then a metric. For\n"
+  print("\nNow your goals, one per line: the goalname, then a metric. For\n"
         "exercise_* metrics you can add kinds of workout, like\n"
-        "\"run exercise_km RUNNING TRAIL_RUN\"; with no kinds, every workout counts.\n"
+        "\"run exercise_km RUNNING TRAIL_RUN\"; with no kinds of workout specified, every workout counts.\n"
         "Metrics: " + ", ".join(METRICS) + "\n"
         "Press Enter on an empty line when you're done.")
   while True:
@@ -286,7 +288,7 @@ def setup():
     elif types and METRICS[metric][0] != "exercise":
       print("Only the exercise_* metrics take kinds of workout.")
     elif not all(re.fullmatch(r"[A-Z_]+", t) for t in types):
-      print("Spell kinds of workout the way Google does, in capitals: RUNNING, BIKING, SWIMMING, ...")
+      print("Spell kinds of workout the way Google does, in all-caps: RUNNING, BIKING, SWIMMING, ...")
     elif slug not in user["goals"]:
       print(f"{user['username']} has no goal \"{slug}\". Your goals: " + ", ".join(user["goals"]))
     else:
