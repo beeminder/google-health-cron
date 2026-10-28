@@ -217,8 +217,8 @@ You need one Beeminder goal for each metric you want to send. A goal can be
 new or one you already have, but it shouldn't be connected to an autodata
 integration. This script is its data source now.
 
-A goal's **slug** is the last part of its address: for
-`https://www.beeminder.com/alice/walk` the slug is `walk`.
+A goal's **goalname** is the last part of its URL: for
+`https://www.beeminder.com/alice/walk` the goalname is `walk`.
 
 Some pointers:
 
@@ -256,7 +256,7 @@ Setup reads `~/.config/beeminder-googlehealth/client_secret.json` from step
 
 **1. Your Beeminder auth token** from step 3.
 
-**2. Your goals, one per line.** Each line is the goal's slug, then a metric
+**2. Your goals, one per line.** Each line is the goalname, then a metric
 from the table at the top:
 
 ```
@@ -280,8 +280,9 @@ ones are `RUNNING`, `TRAIL_RUN`, `TREADMILL`, `WALKING`, `HIKING`, `BIKING`,
 `SWIMMING_OPEN_WATER`, `YOGA`, `WEIGHTLIFTING`, `STRENGTH_TRAINING`, `HIIT`,
 `ELLIPTICAL`, `ROWING_MACHINE`, and `OTHER`. The full list (about 200) is
 [here](https://developers.google.com/health/reference/rest/v4/users.dataTypes.dataPoints#Exercise.ExerciseType).
-A misspelled kind just never matches anything, so if a goal isn't getting
-data, check the spelling first.
+
+Setup checks each kind against Google's current list. If one isn't
+on it, setup says so and you type that goal's line again.
 
 Press Enter on an empty line when you're done.
 
@@ -305,8 +306,8 @@ Press Enter on an empty line when you're done.
    just run setup again.
 
 Setup then saves everything to `~/.config/beeminder-googlehealth/config.json`.
-It does a first sync and prints each datapoint it sent, one per line: goal
-slug, date, value, and an ID. Look at your goals on Beeminder and you should
+It does a first sync and prints each datapoint it sent, one per line:
+goalname, date, value, and an ID. Look at your goals on Beeminder and you should
 see the last week of data.
 
 
@@ -402,7 +403,8 @@ Your settings are in `~/.config/beeminder-googlehealth/config.json`:
   "goals": {
     "walk": {"metric": "steps", "types": []},
     "run":  {"metric": "exercise_km", "types": ["RUNNING", "TRAIL_RUN"]}
-  }
+  },
+  "exercise_types": ["EXERCISE_TYPE_UNSPECIFIED", "AEROBIC_WORKOUT", "ARCHERY", "…"]
 }
 ```
 
@@ -412,6 +414,12 @@ uses a new kind of Google data (sleep, or weight, if you didn't have them
 before). For that, re-run setup so Google can ask your permission for it.
 Re-running setup is always fine. It replaces the whole file, so you'll
 enter your goals again.
+
+Setup also saves Google's list of every kind of workout, as
+`exercise_types`. Each run checks your goals' kinds of workout against that
+list and stops with an error if one isn't on it. Either fix the spelling,
+or, if it's a kind Google added since your last setup, re-run setup to get
+the latest list.
 
 This file holds your Google login and your Beeminder token. It's readable
 only by your user. Don't share it, and don't copy it into the repo.
@@ -447,7 +455,7 @@ The Beeminder auth token is wrong. Get it again (step 3), fix it in
 `config.json`, or re-run setup.
 
 **Errors mentioning HTTP 404 from beeminder.com.**
-A goal slug in `config.json` doesn't match a goal of yours, or the goal is
+A goalname in `config.json` doesn't match a goal of yours, or the goal is
 archived.
 
 **On a Mac, `sync.log` says "Operation not permitted".**

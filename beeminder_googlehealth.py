@@ -8,7 +8,7 @@ DIY sync from the Google Health API to Beeminder goals.
   python3 beeminder_googlehealth.py            # from cron, as often as you like
   python3 beeminder_googlehealth.py --dry-run  # print what would be sent
 
-Standard library only, Python 3.9+. See DEVNOTES.md for the design.
+Standard library only, Python 3.9+. See README.md.
 
 Daily totals (steps etc) become one datapoint per day. Sleeps (naps too),
 workouts and weigh-ins become one datapoint per event, the way the app shows
@@ -30,6 +30,7 @@ CACHE_PATH  = CONFIG_DIR / "cache.json"  # disposable; delete it to force a rese
 
 BEEMINDER    = "https://www.beeminder.com/api/v1"
 GHEALTH      = "https://health.googleapis.com/v4"
+DISCOVERY    = "https://health.googleapis.com/$discovery/rest?version=v4" # machine-readable API docs
 GOOGLE_AUTH  = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN = "https://oauth2.googleapis.com/token"
 REDIRECT_URI = "https://www.google.com" # what Google's Health API setup guide says
@@ -71,6 +72,8 @@ METRICS = {
 # Per-event data types, and which of their times picks the Beeminder day.
 # Sleep goes on the day you woke up (the only way Google lets you filter it),
 # workouts on the day they started.
+# "Civil" is Google's word for the user's local wall-clock date and time, as
+# opposed to "physical" time, an instant in UTC.
 EVENT_DAY = {"weight":   "sample_time.civil_time",
              "sleep":    "interval.civil_end_time",
              "exercise": "interval.civil_start_time"}
@@ -109,6 +112,7 @@ def write_json(path, obj):
 # activeZoneMinutes and civilEndTime
 def camel(s): return re.sub(r"[-_](\w)", lambda m: m.group(1).upper(), s)
 
+# A daystamp is Beeminder's name for a date as a YYYYMMDD string
 def daystamp(d): return f"{d['year']:04d}{d['month']:02d}{d['day']:02d}"
 
 def civil(day): return {"date": {"year": day.year, "month": day.month, "day": day.day}}
@@ -182,40 +186,48 @@ def datapoint(data_type, event_id, ds, value, raw):
   return {"daystamp": ds, "value": value, "comment": comment,
           "requestid": f"googlehealth-{data_type}-{event_id}"}
 
-def post_datapoints(auth_token, slug, dps):
+def post_datapoints(auth_token, goalname, dps):
   """Upsert via create_all. Same requestid + same value/comment/daystamp =
   Beeminder ignores it (and doesn't regraph)."""
-  r = http("POST", f"{BEEMINDER}/users/me/goals/{slug}/datapoints/create_all.json",
+  r = http("POST", f"{BEEMINDER}/users/me/goals/{goalname}/datapoints/create_all.json",
            form={"auth_token": auth_token, "datapoints": json.dumps(dps)})
   # All good -> a plain list. Otherwise {"successes": [...], "errors": [...]},
   # where an identical resend is reported as an error "Duplicate request".
   if isinstance(r, dict):
     bad = [e for e in r["errors"]
            if not (isinstance(e, dict) and e.get("errors") == "Duplicate request")]
-    if bad: raise RuntimeError(f"Beeminder create_all {slug}: {bad}")
+    if bad: raise RuntimeError(f"Beeminder create_all {goalname}: {bad}")
 
 # -------------------------------------------------------------------- sync ---
 
 def sync(cfg, cache, today, dry_run=False):
   """Send each goal the datapoints that differ from what we last sent it.
-  Returns [(slug, datapoint)] that were sent (or would be, if dry_run).
+  Returns [(goalname, datapoint)] that were sent (or would be, if dry_run).
   Mutates cache; the caller saves it."""
   token = access_token(cfg, cache)
   events = {}
-  for g in cfg["goals"].values():
+  for goalname, g in cfg["goals"].items():
+    unknown = sorted(set(g["types"]) - set(cfg["exercise_types"]))
+    # TODO: English copy. Meaning: "Goal <goalname>: as of your last setup,
+    # Google has no kind of workout called <unknown>. Fix the spelling in
+    # config.json, or re-run setup to get Google's latest list."
+    assert not unknown, (f"Meta {goalname}: secundum ultimum tuum setup, Google nullum genus "
+                         f"exercitationis nomine {', '.join(unknown)} habet. Corrige scripturam "
+                         f"in config.json, aut setup iterum exsequere ut indicem novissimum "
+                         f"Google accipias.")
     data_type = METRICS[g["metric"]][0]
     if data_type not in events:
       fetch = list_events if data_type in EVENT_DAY else daily_events
       events[data_type] = fetch(token, data_type, today)
 
-  sent = cache.setdefault("sent", {}) # {slug: {requestid: datapoint}}
-  for slug in list(sent):
-    if slug not in cfg["goals"]: del sent[slug]
+  sent = cache.setdefault("sent", {}) # {goalname: {requestid: datapoint}}
+  for goalname in list(sent):
+    if goalname not in cfg["goals"]: del sent[goalname]
   oldest = window_start(today).strftime("%Y%m%d")
   out = []
-  for slug, g in cfg["goals"].items():
+  for goalname, g in cfg["goals"].items():
     data_type, _, convert = METRICS[g["metric"]]
-    have = sent.setdefault(slug, {})
+    have = sent.setdefault(goalname, {})
     for rid in [rid for rid, dp in have.items() if dp["daystamp"] < oldest]: del have[rid]
     want = [datapoint(data_type, eid, ds, convert(raw), raw)
             for eid, ds, raw in events[data_type]
@@ -224,9 +236,9 @@ def sync(cfg, cache, today, dry_run=False):
                   key=lambda dp: (dp["daystamp"], dp["requestid"]))
     if not todo: continue
     if not dry_run:
-      post_datapoints(cfg["beeminder_auth_token"], slug, todo)
+      post_datapoints(cfg["beeminder_auth_token"], goalname, todo)
       have.update({dp["requestid"]: dp for dp in todo})
-    out += [(slug, dp) for dp in todo]
+    out += [(goalname, dp) for dp in todo]
   return out
 
 def load_cache():
@@ -241,7 +253,7 @@ def run_sync(cfg, dry_run=False):
     if json.dumps(cache, sort_keys=True) != before: write_json(CACHE_PATH, cache)
 
 def show(sent):
-  for slug, dp in sent: print(slug, dp["daystamp"], dp["value"], dp["requestid"])
+  for goalname, dp in sent: print(goalname, dp["daystamp"], dp["value"], dp["requestid"])
 
 # ------------------------------------------------------------------- setup ---
 
@@ -271,8 +283,11 @@ def setup():
   ).strip()
   user = http("GET", f"{BEEMINDER}/users/me.json?" +
                      urllib.parse.urlencode({"auth_token": auth_token}))
+  # Every kind of workout Google has, e.g. RUNNING. Saved in the config so sync
+  # can check hand-edited goals against it too.
+  exercise_types = http("GET", DISCOVERY)["schemas"]["Exercise"]["properties"]["exerciseType"]["enum"]
 
-  # {slug: {"metric": "exercise_km", "types": ["RUNNING"]}}; no types = all workouts
+  # {goalname: {"metric": "exercise_km", "types": ["RUNNING"]}}; no types = all workouts
   goals = {}
   print("\nNow your goals, one per line: the goalname, then a metric. For\n"
         "exercise_* metrics you can add kinds of workout, like\n"
@@ -282,17 +297,17 @@ def setup():
   while True:
     parts = input("Goal: ").split()
     if not parts: break
-    slug, metric, types = parts[0], parts[1] if len(parts) > 1 else None, parts[2:]
+    goalname, metric, types = parts[0], parts[1] if len(parts) > 1 else None, parts[2:]
     if metric not in METRICS:
       print("The second word has to be one of these metrics: " + ", ".join(METRICS))
     elif types and METRICS[metric][0] != "exercise":
       print("Only the exercise_* metrics take kinds of workout.")
-    elif not all(re.fullmatch(r"[A-Z_]+", t) for t in types):
+    elif not all(t in exercise_types for t in types):
       print("Spell kinds of workout the way Google does, in all-caps: RUNNING, BIKING, SWIMMING, ...")
-    elif slug not in user["goals"]:
-      print(f"{user['username']} has no goal \"{slug}\". Your goals: " + ", ".join(user["goals"]))
+    elif goalname not in user["goals"]:
+      print(f"{user['username']} has no goal \"{goalname}\". Your goals: " + ", ".join(user["goals"]))
     else:
-      goals[slug] = {"metric": metric, "types": types}
+      goals[goalname] = {"metric": metric, "types": types}
   if not goals: sys.exit("No goals entered, so there's nothing to set up.")
 
   scopes = sorted({METRICS[g["metric"]][1] for g in goals.values()})
@@ -331,7 +346,8 @@ def setup():
                     "client_secret": web["client_secret"],
                     "refresh_token": tok["refresh_token"]},
          "beeminder_auth_token": auth_token,
-         "goals": goals}
+         "goals": goals,
+         "exercise_types": exercise_types}
   write_json(CONFIG_PATH, cfg)
   CACHE_PATH.unlink(missing_ok=True) # cached access token may lack new scopes
   print(f"\nSaved to {CONFIG_PATH}. First sync:")

@@ -1,0 +1,610 @@
+<!doctype html>
+<!-- Fasciculus hic a sourcery generatus est, numquam manu scriptus.
+     Memoria dialogi in tabulis iuxta positis (sourcery.LOGIN.jsonl)
+     servatur, ex quibus generatio proxima eum denuo reddit atque
+     superscribit. Noli emendare. -->
+<html lang="und">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%90%9D%3C/text%3E%3C/svg%3E">
+<meta name="description" content="4 prompts · 2026-10-28 · +126 −24">
+<meta property="og:title" content="google-health-cron">
+<meta property="og:description" content="4 prompts · 2026-10-28 · +126 −24">
+<title>google-health-cron</title>
+<style>
+/* Beeminder hive: honey paper by day, warm black by night, goldenrod
+   accents throughout. Light-mode goldenrod is darkened for text contrast;
+   dark mode gets the full #FFB300. */
+:root {
+  color-scheme: light dark;
+  --bg: #faf0d8;
+  --ink: #1c1508;
+  --muted: #77673f;
+  --faint: #a8945e;
+  --line: #eadbb4;
+  --reply-bg: #f4e9cf;
+  --reply-ink: #4a3f22;
+  --accent: #a97b00;
+  --stripe: #ffb300;
+  /* Diffstat mark pair, teal for added and red for deleted, validated per
+     mode against its page surface (CVD-simulated ΔE >= 10, contrast >= 3:1;
+     a plain green fails deutan/protan separation against these reds). */
+  --diff-add: #00785a;
+  --diff-del: #cf222e;
+  /* Provider identity quartet for the exchange edge stripe and meta-line
+     chip, validated per mode against its page surface: within the quartet
+     the worst CVD-simulated pair is 8.7 light / 7.2 dark (both inside the
+     original trio; the olive's own worst pair is 11.7 / 13.6), normal-vision
+     ΔE >= 16.9, contrast >= 3:1. Against the diffstat pair the olive sits
+     6.3 / 6.5 under simulation — the 6–8 band that is legal only with
+     secondary encoding, which these marks have: a different mark class, and
+     the agent's name beside every chip. Identity never rides on color
+     alone. */
+  --claude: #b02777;
+  --codex: #076f9e;
+  --copilot: #6a2fc2;
+  --antigravity: #656902;
+  --measure: 44rem;
+  --serif: "Iowan Old Style", Charter, Georgia, "Times New Roman", serif;
+  --sans: ui-sans-serif, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16130f;
+    --ink: #ece2cc;
+    --muted: #a3946f;
+    --faint: #5f5540;
+    --line: #2d2718;
+    --reply-bg: #1f1a12;
+    --reply-ink: #c9bc9e;
+    --accent: #ffb300;
+    --stripe: #ffb300;
+    --diff-add: #1fa179;
+    --diff-del: #f85149;
+    --claude: #d84f97;
+    --codex: #1a94b4;
+    --copilot: #8a75f0;
+    --antigravity: #8b8806;
+  }
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  border-top: 4px solid var(--stripe);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.6;
+  text-rendering: optimizeLegibility;
+}
+main {
+  width: min(calc(100% - 2.5rem), var(--measure));
+  margin: 0 auto;
+  padding: 5rem 0 8rem;
+}
+.masthead { padding-bottom: 2rem; }
+.generator {
+  margin: 0 0 1.1rem;
+  font-family: var(--sans);
+  font-size: .68rem;
+  letter-spacing: .06em;
+  color: var(--faint);
+}
+.generator a { color: inherit; text-decoration: none; }
+.generator a:hover { color: var(--accent); text-decoration: underline; }
+h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 5.5vw, 2.9rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.deck, .repo-path {
+  margin: .6rem 0 0;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: .74rem;
+  letter-spacing: .03em;
+  font-variant-numeric: tabular-nums;
+}
+.repo-path { font-family: var(--mono); font-size: .7rem; overflow-wrap: anywhere; }
+.repo-path a { color: var(--muted); text-decoration: none; }
+.repo-path a:hover { color: var(--accent); text-decoration: underline; }
+.controls {
+  margin: .9rem 0 0;
+  font-family: var(--sans);
+  font-size: .7rem;
+  letter-spacing: .04em;
+  color: var(--faint);
+}
+.controls a { color: var(--muted); text-decoration: none; }
+.controls a:hover { color: var(--accent); text-decoration: underline; }
+/* Minimap: the dialog at a glance, added lines above the midline and
+   deleted below, one clickable sliver per prompt. */
+.minimap { display: block; height: 48px; margin: 1.6rem 0 0; }
+.minimap .hit { fill: transparent; }
+.minimap .add { fill: var(--diff-add); }
+.minimap .del { fill: var(--diff-del); }
+.minimap .nil { fill: var(--line); }
+.minimap a:hover .hit { fill: color-mix(in srgb, var(--accent) 20%, transparent); }
+/* The reading-progress rail, the device Asterisk magazine runs down its
+   left margin: a goldenrod column — the top stripe's vertical sibling —
+   fixed to the viewport's left edge, its height the fraction of the page
+   scrolled past, invisible until the reader has actually set off (the
+   script adds .show past 300px of scroll). One tick per day header hangs
+   on the same percent scale, so the bar's tip touches a day's tick at the
+   exact moment that day reaches the top of the viewport; a tick's label
+   appears on hover and clicking it jumps to the day. The bar's width
+   cedes continuously as the viewport narrows toward the text column, and
+   below 54rem the marks leave entirely. */
+#progress .progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: clamp(6px, calc((100vw - var(--measure)) / 2 - 12px), 32px);
+  height: 0;
+  opacity: 0;
+  background: var(--stripe);
+  transition: opacity .1s linear;
+  z-index: 10;
+}
+#progress .daymark {
+  position: fixed;
+  left: 0;
+  z-index: 11;
+  display: flex;
+  margin-top: -12px;
+  color: var(--muted);
+  font-family: var(--sans);
+  font-size: .65rem;
+  letter-spacing: .04em;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  transform: translateX(-100%);
+  transition: transform .2s ease;
+}
+#progress .tick {
+  width: 46px;
+  height: 12px;
+  border-bottom: 1px solid var(--ink);
+}
+#progress .text {
+  margin-left: .5rem;
+  padding: .1rem .4rem;
+  border: 1px solid var(--line);
+  border-radius: .3rem;
+  background: var(--bg);
+  opacity: 0;
+  transition: opacity .2s ease-in;
+}
+#progress .daymark:hover .text { opacity: 1; }
+#progress.show .progress-bar { opacity: 1; }
+#progress.show .daymark { transform: none; }
+@media (max-width: 54rem) {
+  #progress .daymark { display: none; }
+}
+::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+summary a.anchor { color: inherit; text-decoration: none; }
+summary a.anchor:hover { text-decoration: underline; }
+.exchange:target {
+  background: var(--reply-bg);
+  border-radius: .45rem;
+  padding: 1.1rem 1.25rem;
+  margin: 2.6rem -1.25rem 0;
+}
+/* The clock. Every time and date on the page is written in UTC, so the
+   file reads the same whoever runs sourcery, and each day header names
+   that zone at the far end of its rule (the script swaps in the viewer's
+   own zone, see JS): the agent name's ink at regular weight, quieter than
+   the date but never as faint as the meta line, since it is there to
+   stop a misreading. */
+.day {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin: 3.8rem 0 0;
+  padding-bottom: .4rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+  color: var(--accent);
+  font-family: var(--sans);
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  font-variant-numeric: tabular-nums;
+}
+.day .zone { color: var(--muted); font-weight: 400; }
+.exchange { margin: 2.6rem 0 0; border-left: 3px solid var(--provider); padding-left: 0.85rem; }
+.exchange.claude { --provider: var(--claude); }
+.exchange.codex { --provider: var(--codex); }
+.exchange.copilot { --provider: var(--copilot); }
+.exchange.antigravity { --provider: var(--antigravity); }
+.exchange.claudeai { --provider: var(--claude); }
+/* The exchange's header: the speaker label — the human's display name
+   set above their turn, the way a play script or an interview transcript
+   names whoever speaks next — and across from it, on the label's
+   baseline, the diffstat. The label is in the human's own serif, its
+   lowercase as small capitals and any capitals kept full size (the
+   name is data, so its case must survive), in the agent name's ink;
+   the meta line no longer repeats the name. */
+.exchange > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.1rem;
+  margin: 0 0 .1rem;
+}
+.speaker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1.06rem;
+  font-variant-caps: small-caps;
+  letter-spacing: .08em;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* The prompt's diffstat closes the header row, never squeezed by a long
+   label. Numbers
+   wear the metadata ink; polarity lives in the blocks (and in the signs and
+   the fixed added-first order). */
+.diffstat {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: .68rem;
+  letter-spacing: .05em;
+  font-variant-numeric: tabular-nums;
+}
+.diffstat .blocks { display: inline-flex; gap: 2px; }
+.diffstat .blocks span { width: 7px; height: 7px; border-radius: 2px; }
+.diffstat .add { background: var(--diff-add); }
+.diffstat .del { background: var(--diff-del); }
+.diffstat .nil { background: var(--line); }
+pre.prompt {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+  font: inherit;
+  font-size: 1.06rem;
+  line-height: 1.62;
+}
+.attachments {
+  margin-top: .75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.attachments img {
+  max-width: 100%;
+  max-height: 20rem;
+  border: 1px solid var(--line);
+  border-radius: .3rem;
+}
+details { margin: .55rem 0 0; }
+summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .6rem;
+  width: fit-content;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  color: var(--faint);
+  font-family: var(--sans);
+  font-size: .68rem;
+  letter-spacing: .05em;
+  font-variant-numeric: tabular-nums;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before {
+  content: "▸";
+  color: var(--accent);
+  font-size: .62rem;
+  transition: transform .12s ease;
+}
+details[open] > summary::before { transform: rotate(90deg); }
+summary:hover { color: var(--muted); }
+/* The agent's marks in the meta line: a small square chip wearing the
+   provider color (the same hue as the edge stripe) and the agent's name a
+   step louder than the rest of the line — promoted ink, never the mark
+   color, so the reading survives any color deficiency. */
+.chip { display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 2px; background: var(--provider); }
+.agent { color: var(--muted); font-weight: 600; }
+/* INVIOLABLE: machine-generated prose renders only inside a .machine
+   container, in the phosphor-terminal style — monospace green on
+   near-black, in both color schemes — for maximal distinction from the
+   human's serif. The containers are .reply (agent replies) and .ballot
+   (multiple-choice questions the agent posed and the option labels it
+   wrote, including the ones the human picked). Machine styling and
+   collapsing are separate rules: .reply also hides behind the closed
+   disclosure, while .ballot is deliberately default-visible — collapsing
+   it would orphan the human's choice — but stays in phosphor. */
+.machine {
+  --m-bg: #060d08;
+  --m-ink: #56dd7f;
+  --m-bright: #8dffab;
+  --m-dim: #2f8a4f;
+  --m-line: #1c4b2d;
+  font-family: var(--mono);
+  background: var(--m-bg);
+  color: var(--m-ink);
+}
+.ballot {
+  margin: 1rem 0 .6rem;
+  padding: .65rem .85rem;
+  border-radius: .3rem;
+  font-size: .8rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.ballot-question {
+  color: var(--m-dim);
+  font-size: .74rem;
+  margin-bottom: .35rem;
+  white-space: pre-wrap;
+}
+.ballot .option { color: var(--m-dim); }
+.ballot .option.picked { color: var(--m-bright); }
+.exchange > header + .ballot { margin-top: .3rem; }
+.reply {
+  margin-top: .8rem;
+  padding: 1rem 1.15rem;
+  border-radius: .35rem;
+  font-size: .82rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.reply > :first-child { margin-top: 0; }
+.reply > :last-child { margin-bottom: 0; }
+.reply p { margin: .8rem 0; }
+.reply h2, .reply h3, .reply h4, .reply h5, .reply h6 {
+  margin: 1.3rem 0 .55rem;
+  line-height: 1.25;
+}
+.reply h2 { font-size: 1.05rem; }
+.reply h3, .reply h4, .reply h5, .reply h6 { font-size: .95rem; }
+.reply ul, .reply ol { margin: .75rem 0; padding-left: 1.4rem; }
+.reply li + li { margin-top: .25rem; }
+.reply blockquote {
+  margin: .9rem 0;
+  padding-left: .9rem;
+  border-left: 2px solid var(--m-line);
+  color: var(--m-dim);
+}
+.reply code { font-size: .95em; }
+.reply :not(pre) > code {
+  padding: .1em .3em;
+  border: 1px solid var(--m-line);
+  border-radius: .25rem;
+}
+.reply pre.code {
+  margin: .9rem 0;
+  padding: .9rem 1rem;
+  overflow-x: auto;
+  white-space: pre;
+  border: 1px solid var(--m-line);
+  border-radius: .3rem;
+  background: #0a170e;
+}
+.reply a { color: var(--m-bright); }
+.reply.empty { font-style: italic; color: var(--m-dim); }
+@media print {
+  :root { --bg: white; --ink: black; --faint: #777; --muted: #555; --line: #bbb; --reply-bg: white; --reply-ink: #333; }
+  #progress { display: none; }
+  .machine { --m-bg: white; --m-ink: #14572e; --m-bright: #14572e; --m-dim: #4d7a5d; --m-line: #9dbfa8; background: white; border: 1px solid var(--m-line); }
+  .reply pre.code { background: white; }
+  main { width: 100%; padding: 0; }
+  .day { break-after: avoid; }
+  .exchange { break-inside: avoid; }
+  details > .reply { display: block !important; }
+  summary::before { content: ""; }
+}
+</style>
+</head>
+<body>
+<div id="progress">
+<div class="progress-bar" aria-hidden="true"></div>
+<nav class="daymarks" aria-label="Index dierum">
+<a class="daymark" href="#d2026-10-28"><span class="tick"></span><span class="text">2026-10-28 Wednesday</span></a>
+</nav>
+</div>
+<main>
+<header class="masthead">
+  <p class="generator"><a href="https://github.com/beeminder/sourcery">generated by sourcery</a></p>
+  <h1>google-health-cron</h1>
+  <p class="deck">4 prompts · <span class="range"><time datetime="2026-10-28">2026-10-28</time></span> · +126 −24</p>
+  <p class="repo-path"><a href="https://github.com/beeminder/google-health-cron">github.com/beeminder/google-health-cron</a></p>
+  <p class="controls"><a href="#" data-omnia="open">expand all</a> · <a href="#" data-omnia="close">collapse all</a></p>
+  <svg class="minimap" viewBox="0 0 12 64" preserveAspectRatio="none" style="width:min(100%, 24px)" aria-label="Tabula dialogi, rogatio post rogationem"><a href="#p1"><title>04:13 +11 −3</title><rect class="hit" x="0" y="0" width="3" height="64"/><rect class="add" x="0" y="21.3" width="2" height="10.7"/><rect class="del" x="0" y="32" width="2" height="5.6"/></a><a href="#p2"><title>04:27 +29 −11</title><rect class="hit" x="3" y="0" width="3" height="64"/><rect class="add" x="3" y="14.6" width="2" height="17.4"/><rect class="del" x="3" y="32" width="2" height="10.7"/></a><a href="#p3"><title>04:37</title><rect class="hit" x="6" y="0" width="3" height="64"/><rect class="nil" x="6" y="31" width="2" height="2"/></a><a href="#p4"><title>04:40 +86 −10</title><rect class="hit" x="9" y="0" width="3" height="64"/><rect class="add" x="9" y="2" width="2" height="30"/><rect class="del" x="9" y="32" width="2" height="10.2"/></a></svg>
+</header>
+<h2 class="day" id="d2026-10-28"><time datetime="2026-10-28">2026-10-28 Wednesday</time> <span class="zone">UTC</span></h2>
+<article class="exchange claude" id="p1" data-login="dreeves">
+<header><p class="speaker">dreev</p>
+<div class="diffstat">+11 −3 <span class="blocks" aria-hidden="true"><span class="add"></span><span class="add"></span><span class="add"></span><span class="del"></span><span class="nil"></span></span></div></header>
+<pre class="prompt">can you get this repo in line with AGENTS.md? for example, quals not tests</pre>
+<details>
+<summary><a class="anchor" href="#p1"><time datetime="2026-10-28T04:13:32.224000+00:00">04:13</time></a> <span class="chip"></span> <span class="agent">Claude Code</span> <span class="model">claude-opus-5-5</span> <span class="effort">(xhigh)</span> <span class="elapsed">thought for 4m20s · 4m39s wall-clock time</span></summary>
+<div class="reply machine"><p>Rule 15 is already enforced (global deny list plus the <code>git-guard.py</code> hook). Next, checking how the existing <code>git-guard-quals.py</code> names and runs quals, so this repo can match it.</p>
+<p>Running the current suite to get a baseline count before renaming.</p>
+<p>Baseline: 28 pass. Now renaming the file, classes, and methods.</p>
+<p>Checking both directions: the default loader should find 0 quals, and the custom loader should find all 28.</p>
+<p>Quals green under the new name. Now adding definitions for two undefined jargon terms (rule 13) in the main script: &quot;civil&quot; and &quot;daystamp&quot;.</p>
+<p>I renamed the tests to quals and added two jargon definitions. All 28 quals pass with <code>python3 beeminder_googlehealth_quals.py -v</code>. Seven other changes would alter behavior or wording, so they&#x27;re listed below for you to decide.</p>
+<p><strong>Done:</strong></p>
+<ul><li><strong>Quals rename:</strong> <code>test_beeminder_googlehealth.py</code> is now [beeminder_googlehealth_quals.py](beeminder_googlehealth_quals.py), named like <code>~/.claude/hooks/git-guard-quals.py</code>. Classes are now <code>Qual*</code> and methods <code>qual_*</code>. The <code>__main__</code> block tells unittest to collect <code>qual*</code> methods instead of <code>test*</code>. Running <code>python3 -m unittest beeminder_googlehealth_quals</code> with the default loader reports &quot;NO TESTS RAN&quot;, so the custom loader is what finds them.</li><li><strong>The file was moved with plain <code>mv</code>:</strong> git shows a deleted file plus an untracked one until you stage both; <code>git add -A</code> will record it as a rename.</li><li><strong>Rule 13 (define jargon):</strong> added comments defining &quot;civil&quot; ([beeminder_googlehealth.py:74](beeminder_googlehealth.py#L74)) and &quot;daystamp&quot; ([beeminder_googlehealth.py:114](beeminder_googlehealth.py#L114)) where each is first used.</li><li><strong>Rule 15 (git):</strong> confirmed. <code>~/.claude/settings.json</code> blocks the git commands that change a repo and runs <code>git-guard.py</code> on every Bash call. Those are user-level settings, so they cover this repo.</li></ul>
+<p><strong>Needs your decision:</strong></p>
+<ol><li><strong>AGENTS.md isn&#x27;t loaded automatically.</strong> There&#x27;s no CLAUDE.md, and this session only saw AGENTS.md by reading it from disk. A one-line CLAUDE.md containing <code>@AGENTS.md</code> would load it every session. AGENTS.md is also not tracked by git yet.</li><li><strong>&quot;slug&quot; vs &quot;goalname&quot;:</strong> commit 07cf8c7 changed the setup prompt to say &quot;goalname&quot;, but the code&#x27;s <code>slug</code> variables and README lines 220–221, 259, 309 and 450 still say &quot;slug&quot;. Which word should the code and README use? Rewording the README is new English prose for a human to write.</li><li><strong>Anti-Postel (fail loudly):</strong> <code>.strip()</code> silently cleans up the pasted auth token ([beeminder_googlehealth.py:274](beeminder_googlehealth.py#L274)) and the pasted redirect URL ([:254](beeminder_googlehealth.py#L254)). Without it, stray whitespace would make setup fail with an error instead.</li><li><strong>Anti-Postel:</strong> a misspelled workout kind silently matches nothing, and README line 283 says so. Fixing it means hard-coding Google&#x27;s ~200 workout kinds and asserting against that list in setup and sync.</li><li><strong>Anti-magic:</strong> <code>run_sync</code> only writes the cache when it changed ([:240](beeminder_googlehealth.py#L240)). Always writing it removes that if-statement, at the cost of one small file write per cron run.</li><li><strong>Anti-magic:</strong> <code>datapoint()</code> treats workouts as a special case and puts the workout name in the comment ([:184](beeminder_googlehealth.py#L184)). Dropping that special case removes the workout name from Beeminder. It would also cause a one-time resend of the last 7 days of workout datapoints, because a changed comment counts as a changed datapoint.</li><li><strong>Rule 14 (bug-report framing):</strong> when a qual fails, unittest&#x27;s output isn&#x27;t labeled Replicata/Expectata/Resultata the way <code>git-guard-quals.py</code>&#x27;s is. Adding those labels needs a custom result class.</li></ol>
+<p>Not an AGENTS.md issue: the main script&#x27;s docstring says &quot;See DEVNOTES.md for the design&quot;, but DEVNOTES.md is git-ignored and doesn&#x27;t exist locally either.</p>
+<p>Rule 10&#x27;s quiz, another principle worth adding: &quot;make illegal states unrepresentable.&quot;</p></div>
+</details>
+</article>
+<article class="exchange claude" id="p2" data-login="dreeves">
+<header><p class="speaker">dreev</p>
+<div class="diffstat">+29 −11 <span class="blocks" aria-hidden="true"><span class="add"></span><span class="add"></span><span class="add"></span><span class="del"></span><span class="nil"></span></span></div></header>
+<pre class="prompt">1. supposedly claude code now reads AGENTS.md if CLAUDE.md doesn't exist
+2. goalname is correct, never slug
+3. strip() seems like a mild enough anti-postel violation that i'm not going to fuss about that.
+4. is there not an easier way to get a loud failure there?
+5. that seems like a reasonable if-statement
+6. there are no users of this yet so we don't have to worry about that, but maybe that special case is reasonable? i'm not sure
+7. i'll trust your judgment on that one
+8. re: DEVNOTES: ok, please fix that. maybe it meant the README?</pre>
+<details>
+<summary><a class="anchor" href="#p2"><time datetime="2026-10-28T04:27:58.363000+00:00">04:27</time></a> <span class="chip"></span> <span class="agent">Claude Code</span> <span class="model">claude-opus-5-5</span> <span class="effort">(xhigh)</span> <span class="elapsed">thought for 3m28s · 3m52s wall-clock time</span></summary>
+<div class="reply machine"><p>Checking whether Google publishes the list of workout kinds in a form the script could fetch, which would make item 4 cheap.</p>
+<p>Google&#x27;s discovery doc is public, needs no auth, and lists 182 workout kinds (RUNNING, TRAIL_RUN, etc. all present). Now the goalname rename: finding every &quot;slug&quot;.</p>
+<p>Now item 7, red first: a stub <code>Qual</code> base class plus a qual about how a failing qual reports.</p>
+<p>Red as expected. Implementing the base class and switching every qual class onto it.</p>
+<p>All 29 green. Checking real failure output and that the Replicata command reruns just that qual, using a deliberately broken copy in the scratchpad.</p>
+<p>Failure output reads as Replicata/Expectata/Resultata, and the Replicata command reruns exactly that qual. Reviewing the full diff.</p>
+<p>The diff shows one whitespace slip from the earlier edit: <code>EVENT_DAY ={</code> lost its space. Fixing.</p>
+<p>Items 2, 7 and 8 are done and all 29 quals pass. Item 4 has an easier fix, which I haven&#x27;t made yet.</p>
+<p><strong>2. goalname.</strong> &quot;slug&quot; is gone from the script, the quals and the README. The four README spots were changed word for word, and line 259 now matches your edit to the setup prompt (&quot;Each line is the goalname, then a metric&quot;). A search finds no &quot;slug&quot; left in any .py or .md file.</p>
+<p><strong>7. Bug-report framing.</strong> I went with it, since rule 14 asks for it directly and <code>git-guard-quals.py</code> already does it. Every qual class now inherits from a small <code>Qual</code> base class that relabels a failed <code>assertEqual(got, want)</code>:</p>
+<pre class="code"><code>Replicata: python3 beeminder_googlehealth_quals.py QualDailyEvents.qual_parses_and_skips_days_without_data
+Expectata: 1
+Resultata: 2</code></pre>
+<ul><li>The Replicata line is a command that reruns just that one qual.</li><li>It was built red first: the new qual failed against an empty <code>Qual</code> class, then passed once the class was filled in.</li><li>To check it, I broke a copy of the script in the scratchpad; the output above is what came back, and the Replicata command reran only that qual.</li><li>The few <code>assertRaises</code>, <code>assertNotIn</code> and <code>assertTrue</code> checks keep unittest&#x27;s default failure messages, which already say what went wrong.</li></ul>
+<p><strong>8. DEVNOTES.</strong> The docstring now says &quot;See README.md.&quot; README.md covers setup and behavior, not internal design, so &quot;for the design&quot; was dropped rather than kept pointing at the wrong file.</p>
+<p><strong>4. Workout kinds.</strong> There is an easier way. Google publishes the full list of 182 workout kinds in a public file that needs no login (its &quot;discovery document&quot;).</p>
+<ul><li><strong>How:</strong> setup would download that list and check each kind against it, replacing the current all-caps check.</li><li><strong>Cost:</strong> no new if-statement, and your existing message &quot;Spell kinds of workout the way Google does, in all-caps: …&quot; fits a misspelling as is.</li><li><strong>Limit:</strong> it only checks kinds typed into setup. A hand-edited <code>config.json</code> would still fail silently, because checking on every sync means downloading a 300 KB file every 15 minutes.</li><li><strong>Also:</strong> setup gets one more network call, and README line 283 (&quot;A misspelled kind just never matches anything&quot;) would need rewording, which is yours to write.</li></ul>
+<p>Should I go ahead with that?</p>
+<p><strong>6. Workout comment.</strong> I&#x27;d keep that special case. The two outputs differ only by a prefix, which is already as small a difference as rule 9 asks for. Without it, Beeminder never shows which kind of workout a datapoint was, which matters most for a goal that counts every workout. Moving the logic into a table would only relocate the special case, not remove it.</p>
+<p><strong>1. AGENTS.md.</strong> For what it&#x27;s worth, AGENTS.md wasn&#x27;t in this session&#x27;s starting context; I only saw it by reading the file. It&#x27;s worth checking that a fresh session actually picks it up.</p></div>
+</details>
+</article>
+<article class="exchange claude" id="p3" data-login="dreeves">
+<header><p class="speaker">dreev</p></header>
+<pre class="prompt">how about saving all 182 workout-kinds in the config file so there's never any silent failure? would that be fine? if google adds a new workout that you want to use, the error would make clear what you need to do, right?</pre>
+<details>
+<summary><a class="anchor" href="#p3"><time datetime="2026-10-28T04:37:56.847000+00:00">04:37</time></a> <span class="chip"></span> <span class="agent">Claude Code</span> <span class="model">claude-opus-5-5</span> <span class="effort">(xhigh)</span> <span class="elapsed">thought for 46s</span></summary>
+<div class="reply machine"><p>Yes, if &quot;the config file&quot; means <code>config.json</code> and setup fills it in. Setup would download Google&#x27;s list of workout kinds and save it there. Hard-coding the list in the script would be worse, because a kind Google adds later would then mean editing the script.</p>
+<p>How it would work:</p>
+<ul><li><strong>Setup</strong> checks each kind you type against the downloaded list. This replaces the current all-caps check, so no if-statement is added, and your existing message (&quot;Spell kinds of workout the way Google does, in all-caps: …&quot;) still fits.</li><li><strong>Every sync</strong> checks that each goal&#x27;s kinds are in the saved list, and stops with an error if one isn&#x27;t. That catches typos in a hand-edited <code>config.json</code> too, and it doesn&#x27;t add a download to each run.</li><li><strong>A kind Google adds later</strong> works without any error if you enter it through setup, because setup always downloads the current list.</li><li><strong>Adding that new kind by hand</strong> to <code>config.json</code> stops the next sync with an error. So yes, the error can make clear what to do, as long as its message says so. Something like: &quot;Goal X: Google had no workout kind Y as of your last setup. Fix the spelling, or re-run setup to get Google&#x27;s latest list.&quot; That&#x27;s new user-facing text, so per rule 7 it would go in as Latin with a TO-DO comment giving that English meaning, for a human to write.</li></ul>
+<p>Costs:</p>
+<ul><li><code>config.json</code> grows by about 180 lines. The list would go at the end of the file, after <code>goals</code>.</li><li>The fix for a new kind added by hand is re-running setup, which means entering your goals again.</li><li>The README needs new wording, which is yours to write. That covers the &quot;misspelled kind just never matches anything&quot; sentence at line 283 and the <code>config.json</code> example under &quot;Changing things later&quot;.</li></ul>
+<p>The work would start with failing quals for each of these behaviors. None exist for <code>setup()</code> yet, so those quals would fake the keyboard input.</p>
+<p>One naming question before starting: should the new key be <code>exercise_types</code>? Goals already use <code>types</code> for their filter and the setup text says &quot;kinds of workout&quot;, while <code>exercise_types</code> matches Google&#x27;s own field name, <code>exerciseType</code>. Go ahead with that name?</p></div>
+</details>
+</article>
+<article class="exchange claude" id="p4" data-login="dreeves">
+<header><p class="speaker">dreev</p>
+<div class="diffstat">+86 −10 <span class="blocks" aria-hidden="true"><span class="add"></span><span class="add"></span><span class="add"></span><span class="add"></span><span class="del"></span></span></div></header>
+<pre class="prompt">ok, yes. and edit the README by explicitly quoting Claude. as in:
+&gt; Claude: "blah blah"</pre>
+<details>
+<summary><a class="anchor" href="#p4"><time datetime="2026-10-28T04:40:06.807000+00:00">04:40</time></a> <span class="chip"></span> <span class="agent">Claude Code</span> <span class="model">claude-opus-5-5</span> <span class="effort">(xhigh)</span> <span class="elapsed">thought for 3m45s · 4m4s wall-clock time</span></summary>
+<div class="reply machine"><p>Starting with a check: are the README&#x27;s &quot;common&quot; workout kinds and the examples in the setup prompt all on Google&#x27;s list? If not, the new check would reject them.</p>
+<p>All present. Now the red quals: two for setup (none existed before) and three for sync.</p>
+<p>Four red, each for the expected reason; the fifth new qual (a kind Google added later still counts for a goal with no kinds listed) guards existing behavior. Implementing.</p>
+<p>All 34 green, and the real list downloads through the script&#x27;s own <code>http()</code>. Now the README.</p>
+<p>Final check: full diff of the script, the quals, and what the new sync error looks like when it fires.</p>
+<p>A misspelled workout kind can no longer fail silently: setup rejects it, and every sync after that stops with an error. All 34 quals pass; four of the five new ones were written first and failed until the code was in place.</p>
+<p><strong>Setup</strong> ([beeminder_googlehealth.py](beeminder_googlehealth.py))</p>
+<ul><li>It downloads Google&#x27;s list of 182 workout kinds and checks each typed kind against it, instead of the old all-caps check. Your message &quot;Spell kinds of workout the way Google does, in all-caps: …&quot; is unchanged, and a qual checks it word for word.</li><li>It saves the list in <code>config.json</code> under <code>exercise_types</code>, after <code>goals</code>.</li><li>The download works against the real Google address, not just in the quals.</li><li>If that download fails, setup stops with an error.</li><li>Setup had no quals before; two new ones now run it start to finish against fake APIs.</li></ul>
+<p><strong>Sync</strong></p>
+<ul><li>Before anything is sent, it checks every goal&#x27;s kinds against the saved list. It stops with an error that names the goal and the unknown kind.</li><li>That error message is Latin for now, with a TO-DO comment above it giving the English meaning: &quot;Goal &lt;goalname&gt;: as of your last setup, Google has no kind of workout called &lt;unknown&gt;. Fix the spelling in config.json, or re-run setup to get Google&#x27;s latest list.&quot; The English is yours to write.</li><li>A <code>config.json</code> with no <code>exercise_types</code> makes every sync crash with an error. That only matters for configs made before this change, and there are no users yet.</li><li>A workout of a kind Google adds later still counts toward goals with no kinds listed. A qual makes sure of that.</li></ul>
+<p><strong>README</strong></p>
+<ul><li>I deleted the sentence that&#x27;s no longer true: &quot;A misspelled kind just never matches anything, so if a goal isn&#x27;t getting data, check the spelling first.&quot;</li><li>Two quoted additions replace it: [README.md:284](README.md#L284) under the list of workout kinds, and [README.md:418](README.md#L418) under &quot;Changing things later&quot;.</li><li>The <code>config.json</code> example now has an <code>exercise_types</code> line ([README.md:407](README.md#L407)). It shortens the list with <code>&quot;…&quot;</code>, the same way the example already writes <code>&quot;GOCSPX-…&quot;</code>.</li><li>The earlier slug → goalname swaps aren&#x27;t quoted, since those were one-word replacements you specified.</li></ul></div>
+</details>
+</article>
+</main>
+<script>
+/* The clock. sourcery writes every time and date on this page in UTC, so
+   the file reads the same whoever runs it; this block re-renders each in
+   the viewer's own zone: every prompt's time, the day headers (regrouping
+   the prompts under the viewer's own calendar days, each header naming
+   the zone as the browser names it), the rail's day marks, the deck's
+   date range and the minimap's titles. With scripts off the page reads in
+   UTC, as written. It runs before the rail code below, which collects the
+   day marks rebuilt here. */
+{
+  const clock = new Intl.DateTimeFormat("en-US", {
+    weekday: "long", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZoneName: "short",
+  });
+  /* An instant as sourcery writes it (ISO 8601 in UTC, to the
+     microsecond), as the parts of the viewer's clock and calendar. */
+  const local = (text) => {
+    const utc = /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?\+00:00$/.exec(text);
+    // TODO: Says the text is not a UTC instant in the form sourcery writes.
+    if (!utc) throw new Error(`Instans UTC formae sourcery non est: ${text}`);
+    const [, year, month, day, hour, minute, second] = utc.map(Number);
+    const instant = Date.UTC(year, month - 1, day, hour, minute, second);
+    return Object.fromEntries(clock.formatToParts(instant).map((part) => [part.type, part.value]));
+  };
+  const days = []; // [date, header text], one per day header, in page order
+  for (const header of document.querySelectorAll("main > h2.day")) header.remove();
+  for (const article of document.querySelectorAll("main > article.exchange")) {
+    const time = article.querySelector("summary time");
+    const at = local(time.dateTime);
+    const date = `${at.year}-${at.month}-${at.day}`;
+    time.textContent = `${at.hour}:${at.minute}`;
+    const title = document.querySelector(`.minimap a[href="#${article.id}"] title`);
+    title.textContent = [time.textContent, ...title.textContent.split(" ").slice(1)].join(" ");
+    if (date !== days.at(-1)?.[0]) {
+      days.push([date, `${date} ${at.weekday}`]);
+      article.insertAdjacentHTML(
+        "beforebegin",
+        `<h2 class="day" id="d${date}"><time datetime="${date}">${date} ${at.weekday}</time>`
+          + ` <span class="zone">${at.timeZoneName}</span></h2>`,
+      );
+    }
+  }
+  document.querySelector("#progress .daymarks").innerHTML = days.map(([date, text]) =>
+    `\n<a class="daymark" href="#d${date}"><span class="tick"></span><span class="text">${text}</span></a>`,
+  ).join("") + "\n";
+  /* The first and last day, or the one day when they are the same (the
+     Set drops the repeat), as render() writes the deck's range. */
+  document.querySelector(".deck .range").innerHTML = [...new Set([days[0][0], days.at(-1)[0]])]
+    .map((date) => `<time datetime="${date}">${date}</time>`).join(" – ");
+}
+for (const control of document.querySelectorAll("[data-omnia]"))
+  control.addEventListener("click", (event) => {
+    event.preventDefault();
+    const open = control.dataset.omnia === "open";
+    for (const details of document.querySelectorAll("details")) details.open = open;
+  });
+/* The reading-progress rail: the bar's height and each day mark's top
+   share one scale — percent of full scroll travel — so the bar's tip
+   touches a day's tick at the exact moment that day's header reaches the
+   top of the viewport. A header past the last reachable scroll position
+   can never get there; its mark pins to 100%, where the bar arrives at
+   the very bottom of the page. */
+const progress = document.getElementById("progress");
+const bar = progress.querySelector(".progress-bar");
+const marks = [...progress.querySelectorAll(".daymark")].map(
+  (mark) => [mark, document.getElementById(mark.hash.slice(1))],
+);
+let ticking = false;
+const sync = () => {
+  if (ticking) return;
+  ticking = true;
+  requestAnimationFrame(() => {
+    const travel = Math.max(document.documentElement.scrollHeight - innerHeight, 1);
+    progress.classList.toggle("show", scrollY > 300);
+    bar.style.height = 100 * scrollY / travel + "%";
+    for (const [mark, header] of marks)
+      mark.style.top =
+        Math.min(100 * (header.getBoundingClientRect().top + scrollY) / travel, 100) + "%";
+    ticking = false;
+  });
+};
+addEventListener("scroll", sync, { passive: true });
+addEventListener("resize", sync);
+/* Opening or closing a disclosure reflows the whole page under the rail. */
+document.addEventListener("toggle", sync, true);
+sync();
+</script>
+</body>
+</html>
