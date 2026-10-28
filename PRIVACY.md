@@ -1,7 +1,9 @@
 # Privacy policy
 
+[Written by Claude, vetted by the humans of Beeminder.]
+
 This policy covers any copy of the
-[DIY Google Health → Beeminder](https://github.com/beeminder/[TODO: repo name])
+[DIY Google Health → Beeminder](https://github.com/beeminder/google-health-cron)
 script. Each copy is a private app, set up and run by one person, for their
 own data, on a computer they control.
 
