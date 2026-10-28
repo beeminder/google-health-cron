@@ -1,7 +1,14 @@
 # DIY Google Health → Beeminder
 
 This is a little helper script meant to be used as a template for folks who might want to roll their own Google Health to Beeminder data integration.
-[TODO: link to blog post].
+It was inspired by Google 
+[shutting down the Fitbit API in 2026](https://blog.beeminder.com/unfitbit "Beeminder blog post about the end of our Fitbit integration").
+Beeminder doesn't support direct Google Health integration because of their paternalistic ideas about owning and using one's own data. 
+So I'm not offering to maintain this script for you or run tech support for you, but here's what it would look like if you were to set up an API client "for personal use" to send your own data over to Beeminder. 
+
+The rest of this README, and the code, was written by Claude (see the sourcery.html document to see my contribution), but I have done some minimal quality testing -- I went through all the steps of setting up the client and configuring the script etc and I can confirm that it appears to work as far as proof of concept goes. 
+
+## Take it away, Claude....
 
 The script, `beeminder_googlehealth.py`, reads your data from the Google
 Health API (the successor to the Fitbit Web API) and sends it to your
