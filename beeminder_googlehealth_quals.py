@@ -37,18 +37,29 @@ def workout(wid, start, kind, mm, secs):
                        "metricsSummary": {"distanceMillimeters": mm},
                        "activeDuration": f"{secs}s"}}
 
+ALL_SCOPES = (bgh.ACTIVITY, bgh.MEASURES, bgh.SLEEP)
+
 class FakeAPIs:
   """Stands in for bgh.http. rollups: {data_type: [rollup points]};
   sessions: {data_type: [[data points on page 1], [page 2], ...]}.
-  The Beeminder user is alice, with goals run and walk."""
-  def __init__(self, rollups={}, sessions={}, create_all_response=None):
+  The Beeminder user is alice, with goals run and walk. Google's consent
+  screen grants every scope and refresh token rt; refreshing grants
+  refresh_scopes, except that refresh tokens in refresh_errors get that
+  error body back."""
+  def __init__(self, rollups={}, sessions={}, create_all_response=None,
+               refresh_scopes=ALL_SCOPES, refresh_errors={}):
     self.rollups, self.sessions, self.calls = rollups, sessions, []
     self.create_all_response = create_all_response
+    self.refresh_scopes, self.refresh_errors = refresh_scopes, refresh_errors
   def __call__(self, method, url, form=None, json_body=None, bearer=None):
     self.calls.append((method, url, form, json_body))
-    if url == bgh.GOOGLE_TOKEN:
+    if url == bgh.GOOGLE_TOKEN and form["grant_type"] == "authorization_code":
       return {"access_token": "at", "expires_in": 3599, "refresh_token": "rt",
-              "scope": " ".join([bgh.ACTIVITY, bgh.MEASURES, bgh.SLEEP])}
+              "scope": " ".join(ALL_SCOPES)}
+    if url == bgh.GOOGLE_TOKEN:
+      if form["refresh_token"] in self.refresh_errors:
+        raise bgh.ApiError(method, url, 400, self.refresh_errors[form["refresh_token"]])
+      return {"access_token": "at", "expires_in": 3599, "scope": " ".join(self.refresh_scopes)}
     if "/$discovery/rest?" in url:
       return {"schemas": {"Exercise": {"properties": {"exerciseType": {"enum": EXERCISE_TYPES}}}}}
     if url.startswith(f"{bgh.BEEMINDER}/users/me.json?"):
@@ -72,6 +83,8 @@ class FakeAPIs:
     return [(url.split("/goals/")[1].split("/")[0], json.loads(form["datapoints"]))
             for _, url, form, _ in self.calls if url.endswith("/create_all.json")]
   def count(self, needle): return sum(needle in url for _, url, _, _ in self.calls)
+  def google_token_forms(self):
+    return [form for _, url, form, _ in self.calls if url == bgh.GOOGLE_TOKEN]
 
 def cfg(**goals):
   """cfg(walk="steps", run=("exercise_km", "RUNNING"))"""
@@ -351,18 +364,37 @@ class QualAuth(Qual):
     self.assertNotIn("SECRET", str(e))
 
 class QualSetup(Qual):
-  def run_setup(self, *typed):
-    """Run setup with these lines typed in, in a throwaway config dir.
-    Returns (the config it saved, [args of each print])."""
+  def run_setup(self, *typed, old=None, **fake):
+    """Run setup with these lines typed in, in a throwaway config dir that
+    holds config `old` from a previous setup, if given, against FakeAPIs
+    with these keyword args. Returns (the config it saved, [args of each
+    print]); also leaves the fake APIs in self.fake and [args of each input]
+    in self.prompts."""
+    self.fake = FakeAPIs({"steps": []}, {"exercise": [[]], "sleep": [[]]}, **fake)
     with tempfile.TemporaryDirectory() as d, \
-         mock.patch.multiple(bgh, http=FakeAPIs(sessions={"exercise": [[]]}),
+         mock.patch.multiple(bgh, http=self.fake,
                              CONFIG_DIR=Path(d), CLIENT_PATH=Path(d, "client_secret.json"),
                              CONFIG_PATH=Path(d, "config.json"), CACHE_PATH=Path(d, "cache.json")), \
-         mock.patch("builtins.input", side_effect=typed), \
+         mock.patch("builtins.input", side_effect=typed) as typed_into, \
          mock.patch("builtins.print") as printed:
       bgh.CLIENT_PATH.write_text(json.dumps({"web": {"client_id": "cid", "client_secret": "sec"}}))
-      bgh.setup()
+      if old is not None: bgh.CONFIG_PATH.write_text(json.dumps(old))
+      try:
+        bgh.setup()
+      finally:
+        self.prompts = [c.args for c in typed_into.call_args_list]
       return json.loads(bgh.CONFIG_PATH.read_text()), [c.args for c in printed.call_args_list]
+
+  def token_checked(self):
+    """The Beeminder auth token setup checked against users/me."""
+    [url] = [url for _, url, _, _ in self.fake.calls if "/users/me.json?" in url]
+    return urllib.parse.parse_qs(urllib.parse.urlparse(url).query)["auth_token"][0]
+
+  TOKEN_PROMPT = "Your Beeminder auth token (from https://www.beeminder.com/api/v1/auth_token.json)"
+  STORED = dict(cfg(walk="steps", run=("exercise_km", "RUNNING")), beeminder_auth_token="stored",
+                google={"client_id": "cid", "client_secret": "sec", "refresh_token": "stored_rt"})
+  CODE = "https://www.google.com/?code=c"
+  PASTE = ("\nPaste the google.com address here: ",)
 
   def qual_saves_googles_exercise_types_in_config(self):
     saved, _ = self.run_setup("bt", "run exercise_km RUNNING", "", "https://www.google.com/?code=c")
@@ -375,6 +407,84 @@ class QualSetup(Qual):
     self.assertIn(("Spell kinds of workout the way Google does, in all-caps: "
                    "RUNNING, BIKING, SWIMMING, ...",), printed)
     self.assertEqual(saved["goals"], {"run": {"metric": "exercise_km", "types": ["RUNNING"]}})
+
+  def qual_first_run_doesnt_offer_a_stored_token(self):
+    self.run_setup("bt", "walk steps", "", self.CODE)
+    self.assertEqual(self.prompts[0], (self.TOKEN_PROMPT + ": ",))
+
+  def qual_first_run_with_no_token_typed_fails_loudly(self):
+    with self.assertRaises(KeyError): self.run_setup("", "walk steps", "", self.CODE)
+
+  def qual_rerun_offers_the_stored_token(self):
+    self.run_setup("", "", self.CODE, old=self.STORED)
+    self.assertEqual(self.prompts[0],
+                     (self.TOKEN_PROMPT + " (enter to use the stored token): ",))
+
+  def qual_rerun_enter_keeps_the_stored_token(self):
+    saved, _ = self.run_setup("", "", self.CODE, old=self.STORED)
+    self.assertEqual(self.token_checked(), "stored")
+    self.assertEqual(saved["beeminder_auth_token"], "stored")
+
+  def qual_rerun_typed_token_replaces_the_stored_one(self):
+    saved, _ = self.run_setup("new", "", self.CODE, old=self.STORED)
+    self.assertEqual(self.token_checked(), "new")
+    self.assertEqual(saved["beeminder_auth_token"], "new")
+
+  def qual_rerun_keeps_stored_goals_and_shows_them_as_if_typed(self):
+    saved, printed = self.run_setup("", "", self.CODE, old=self.STORED)
+    self.assertEqual(saved["goals"], self.STORED["goals"])
+    self.assertIn(("Goal: walk steps",), printed)
+    self.assertIn(("Goal: run exercise_km RUNNING",), printed)
+    self.assertEqual(self.prompts[1:], [("Goal: ",)])
+
+  def qual_rerun_typed_goal_adds_to_or_replaces_stored_ones(self):
+    old = dict(self.STORED, goals=cfg(run=("exercise_km", "RUNNING"))["goals"])
+    saved, _ = self.run_setup("", "walk steps", "run exercise_mi", "", self.CODE, old=old)
+    self.assertEqual(saved["goals"], {"run":  {"metric": "exercise_mi", "types": []},
+                                      "walk": {"metric": "steps", "types": []}})
+
+  def qual_rerun_drops_a_stored_goal_that_fails_the_checks_and_says_why(self):
+    old = dict(self.STORED, goals=cfg(walk="steps", gone="steps")["goals"])
+    saved, printed = self.run_setup("", "", self.CODE, old=old)
+    self.assertIn(('alice has no goal "gone". Your goals: run, walk',), printed)
+    self.assertEqual(saved["goals"], {"walk": {"metric": "steps", "types": []}})
+
+  def qual_first_run_asks_googles_consent(self):
+    saved, _ = self.run_setup("bt", "walk steps", "", self.CODE)
+    self.assertIn(self.PASTE, self.prompts)
+    self.assertEqual(saved["google"], {"client_id": "cid", "client_secret": "sec",
+                                       "refresh_token": "rt"})
+
+  def qual_rerun_keeps_google_access_that_works_and_covers_the_goals(self):
+    saved, _ = self.run_setup("", "", old=self.STORED)
+    self.assertNotIn(self.PASTE, self.prompts)
+    self.assertEqual(saved["google"], self.STORED["google"])
+    self.assertNotIn("authorization_code", [f["grant_type"] for f in self.fake.google_token_forms()])
+
+  def qual_rerun_asks_consent_when_a_goal_needs_a_new_permission(self):
+    saved, _ = self.run_setup("", "walk sleep_hours", "", self.CODE,
+                              old=self.STORED, refresh_scopes=(bgh.ACTIVITY,))
+    self.assertIn(self.PASTE, self.prompts)
+    self.assertEqual(saved["google"]["refresh_token"], "rt")
+
+  def qual_rerun_asks_consent_when_google_no_longer_accepts_the_stored_access(self):
+    saved, _ = self.run_setup("", "", self.CODE, old=self.STORED,
+                              refresh_errors={"stored_rt": '{"error": "invalid_grant"}'})
+    self.assertIn(self.PASTE, self.prompts)
+    self.assertEqual(saved["google"]["refresh_token"], "rt")
+
+  def qual_rerun_asks_consent_for_a_different_oauth_client(self):
+    old = dict(self.STORED, google=dict(self.STORED["google"], client_id="old_cid"))
+    saved, _ = self.run_setup("", "", self.CODE, old=old)
+    self.assertIn(self.PASTE, self.prompts)
+    self.assertEqual(saved["google"], {"client_id": "cid", "client_secret": "sec",
+                                       "refresh_token": "rt"})
+    self.assertNotIn("stored_rt", [f.get("refresh_token") for f in self.fake.google_token_forms()])
+
+  def qual_rerun_any_other_google_error_fails_loudly(self):
+    with self.assertRaises(bgh.ApiError):
+      self.run_setup("", "", self.CODE, old=self.STORED,
+                     refresh_errors={"stored_rt": '{"error": "invalid_client"}'})
 
 class Demo(Qual):
   """Never collected (no qual_* methods); QualQual runs it by hand."""

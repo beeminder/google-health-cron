@@ -125,17 +125,20 @@ def window_end(today): return today + dt.timedelta(days=2)
 
 # ------------------------------------------------------------------ Google ---
 
+def refresh(g):
+  """Google's token response to refreshing the access in g, a config["google"]."""
+  return http("POST", GOOGLE_TOKEN, form={
+    "grant_type":    "refresh_token",
+    "refresh_token": g["refresh_token"],
+    "client_id":     g["client_id"],
+    "client_secret": g["client_secret"]})
+
 def access_token(cfg, cache):
   """Cached access token, refreshed when it's within a minute of expiring."""
   if cache.get("access_token_expires", 0) > time.time() + 60:
     return cache["access_token"]
-  g = cfg["google"]
   try:
-    tok = http("POST", GOOGLE_TOKEN, form={
-      "grant_type":    "refresh_token",
-      "refresh_token": g["refresh_token"],
-      "client_id":     g["client_id"],
-      "client_secret": g["client_secret"]})
+    tok = refresh(cfg["google"])
   except ApiError as e:
     if "invalid_grant" in e.body: # revoked, or the 7-day expiry of a Testing app
       sys.exit(f"Google no longer accepts your refresh token. Run setup again.\n{e}")
@@ -266,51 +269,35 @@ def code_from_redirect(url):
     sys.exit("That address has no code in it. Copy the whole thing from the browser's address bar.")
   return q["code"][0]
 
-def setup():
-  CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+def goal_lines(goals):
+  """Lines to set up goals from: first each of these (stored) goals as the line
+  that would set it up, shown as if typed, then whatever the user types."""
+  for goalname, g in goals.items():
+    line = " ".join([goalname, g["metric"], *g["types"]])
+    print("Goal: " + line)
+    yield line
+  while True: yield input("Goal: ")
 
-  if not CLIENT_PATH.exists():
-    sys.exit(f"Put the OAuth client JSON file you downloaded from Google Cloud "
-             f"at {CLIENT_PATH} (README step 2f).")
-  client = json.loads(CLIENT_PATH.read_text())
-  if "web" not in client:
-    sys.exit("That file is for a different kind of OAuth client. "
-             "Create one of type \"Web application\" (README step 2f).")
-  web = client["web"]
+# Both of these return Google's token response, with a refresh_token.
 
-  auth_token = input(
-    "Your Beeminder auth token (from https://www.beeminder.com/api/v1/auth_token.json): "
-  ).strip()
-  user = http("GET", f"{BEEMINDER}/users/me.json?" +
-                     urllib.parse.urlencode({"auth_token": auth_token}))
-  # Every kind of workout Google has, e.g. RUNNING. Saved in the config so sync
-  # can check hand-edited goals against it too.
-  exercise_types = http("GET", DISCOVERY)["schemas"]["Exercise"]["properties"]["exerciseType"]["enum"]
+def stored_access(old, web, scopes):
+  """The last setup's Google access, freshly refreshed, if it's for this same
+  OAuth client, Google still accepts it, and it covers all these scopes.
+  Otherwise None."""
+  if not old or old["google"]["client_id"] != web["client_id"]: return None
+  g = dict(old["google"], client_secret=web["client_secret"])
+  try:
+    tok = refresh(g)
+  except ApiError as e:
+    if "invalid_grant" not in e.body: raise
+    return None # revoked, unused for 6 months, or a Testing app's 7 days are up
+  if not set(scopes) <= set(tok["scope"].split()): return None
+  # a refresh response lists the scopes it covers but doesn't repeat the refresh token
+  return dict(tok, refresh_token=g["refresh_token"])
 
-  # {goalname: {"metric": "exercise_km", "types": ["RUNNING"]}}; no types = all workouts
-  goals = {}
-  print("\nNow your goals, one per line: the goalname, then a metric. For\n"
-        "exercise_* metrics you can add kinds of workout, like\n"
-        "\"run exercise_km RUNNING TRAIL_RUN\"; with no kinds of workout specified, every workout counts.\n"
-        "Metrics: " + ", ".join(METRICS) + "\n"
-        "Press Enter on an empty line when you're done.")
-  while True:
-    parts = input("Goal: ").split()
-    if not parts: break
-    goalname, metric, types = parts[0], parts[1] if len(parts) > 1 else None, parts[2:]
-    if metric not in METRICS:
-      print("The second word has to be one of these metrics: " + ", ".join(METRICS))
-    elif types and METRICS[metric][0] != "exercise":
-      print("Only the exercise_* metrics take kinds of workout.")
-    elif not all(t in exercise_types for t in types):
-      print("Spell kinds of workout the way Google does, in all-caps: RUNNING, BIKING, SWIMMING, ...")
-    elif goalname not in user["goals"]:
-      print(f"{user['username']} has no goal \"{goalname}\". Your goals: " + ", ".join(user["goals"]))
-    else:
-      goals[goalname] = {"metric": metric, "types": types}
-  if not goals: sys.exit("No goals entered, so there's nothing to set up.")
-
-  scopes = sorted({METRICS[g["metric"]][1] for g in goals.values()})
+def consent(web, scopes):
+  """New Google access, from the user allowing these scopes on Google's
+  consent screen."""
   print("\nOpen this link in a browser and allow access. You'll end up on\n"
         "google.com; copy the whole address from the address bar.\n")
   print(GOOGLE_AUTH + "?" + urllib.parse.urlencode({
@@ -334,6 +321,56 @@ def setup():
   if missing:
     sys.exit("Some permissions are missing. Run setup again and tick every box "
              "on Google's consent screen. Missing: " + ", ".join(sorted(missing)))
+  return tok
+
+def setup():
+  CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+
+  if not CLIENT_PATH.exists():
+    sys.exit(f"Put the OAuth client JSON file you downloaded from Google Cloud "
+             f"at {CLIENT_PATH} (README step 2f).")
+  client = json.loads(CLIENT_PATH.read_text())
+  if "web" not in client:
+    sys.exit("That file is for a different kind of OAuth client. "
+             "Create one of type \"Web application\" (README step 2f).")
+  web = client["web"]
+  # a re-run starts from the last setup's token and goals
+  old = json.loads(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
+
+  auth_token = input(
+    "Your Beeminder auth token (from https://www.beeminder.com/api/v1/auth_token.json)" +
+    (" (enter to use the stored token)" if old else "") + ": "
+  ).strip() or old["beeminder_auth_token"]
+  user = http("GET", f"{BEEMINDER}/users/me.json?" +
+                     urllib.parse.urlencode({"auth_token": auth_token}))
+  # Every kind of workout Google has, e.g. RUNNING. Saved in the config so sync
+  # can check hand-edited goals against it too.
+  exercise_types = http("GET", DISCOVERY)["schemas"]["Exercise"]["properties"]["exerciseType"]["enum"]
+
+  # {goalname: {"metric": "exercise_km", "types": ["RUNNING"]}}; no types = all workouts
+  goals = {}
+  print("\nNow your goals, one per line: the goalname, then a metric. For\n"
+        "exercise_* metrics you can add kinds of workout, like\n"
+        "\"run exercise_km RUNNING TRAIL_RUN\"; with no kinds of workout specified, every workout counts.\n"
+        "Metrics: " + ", ".join(METRICS) + "\n"
+        "Press Enter on an empty line when you're done.")
+  for parts in map(str.split, goal_lines(old.get("goals", {}))):
+    if not parts: break
+    goalname, metric, types = parts[0], parts[1] if len(parts) > 1 else None, parts[2:]
+    if metric not in METRICS:
+      print("The second word has to be one of these metrics: " + ", ".join(METRICS))
+    elif types and METRICS[metric][0] != "exercise":
+      print("Only the exercise_* metrics take kinds of workout.")
+    elif not all(t in exercise_types for t in types):
+      print("Spell kinds of workout the way Google does, in all-caps: RUNNING, BIKING, SWIMMING, ...")
+    elif goalname not in user["goals"]:
+      print(f"{user['username']} has no goal \"{goalname}\". Your goals: " + ", ".join(user["goals"]))
+    else:
+      goals[goalname] = {"metric": metric, "types": types}
+  if not goals: sys.exit("No goals entered, so there's nothing to set up.")
+
+  scopes = sorted({METRICS[g["metric"]][1] for g in goals.values()})
+  tok = stored_access(old, web, scopes) or consent(web, scopes)
   try:
     http("GET", f"{GHEALTH}/users/me/identity", bearer=tok["access_token"])
   except ApiError as e:

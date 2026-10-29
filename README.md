@@ -415,12 +415,12 @@ Your settings are in `~/.config/beeminder-googlehealth/config.json`:
 }
 ```
 
-You can edit `goals` by hand, for instance to point a metric at a different
-goal or change the kinds of workout. The exception is adding a goal that
-uses a new kind of Google data (sleep, or weight, if you didn't have them
-before). For that, re-run setup so Google can ask your permission for it.
-Re-running setup is always fine. It replaces the whole file, so you'll
-enter your goals again.
+To add, change or remove goals, edit `goals` in
+`~/.config/beeminder-googlehealth/config.json`. For instance, you can
+point a metric at a different goal or change the kinds of workout. The
+exception is adding a goal that uses a new kind of Google data (sleep, or
+weight, if you didn't have them before). For that, re-run setup so Google
+can ask your permission for it.
 
 Setup also saves Google's list of every kind of workout, as
 `exercise_types`. Each run checks your goals' kinds of workout against that
@@ -430,6 +430,26 @@ the latest list.
 
 This file holds your Google login and your Beeminder token. It's readable
 only by your user. Don't share it, and don't copy it into the repo.
+
+### Running setup again
+
+Re-running setup is always fine, and it starts from what you entered last
+time:
+
+- **Your Beeminder auth token.** Press Enter to keep the stored one, or
+  paste a new one to replace it.
+- **Your goals.** Setup lists your stored goals as if you'd just typed
+  them, and checks them the same way. Type more lines to add goals, or a
+  line with an existing goalname to replace that goal. Press Enter on an
+  empty line when you're done. If a stored goal no longer passes the checks
+  (say you archived it on Beeminder), setup says why and drops it. Setup
+  can't remove a goal, so to remove one, edit `config.json` as above.
+- **Connecting to Google.** Setup skips the browser step if Google still
+  accepts the stored login and it already covers the data your goals need.
+  Otherwise it prints the link again, as in step 4. That happens when you've
+  added a goal that needs a new kind of Google data, when Google no longer
+  accepts the stored login (see Troubleshooting), or when `client_secret.json`
+  is now for a different OAuth client.
 
 
 ## Troubleshooting
